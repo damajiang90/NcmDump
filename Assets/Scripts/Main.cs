@@ -59,7 +59,6 @@ public class Main : MonoBehaviour
                 _curDirInputField.text = _curDirPath;
                 PlayerPrefs.SetString(CurDirPathKey, _curDirPath);
                 PlayerPrefs.Save();
-                RefreshDir();
             }
         }
     }
@@ -89,7 +88,7 @@ public class Main : MonoBehaviour
     void InitData()
     {
         _recursionDump = PlayerPrefs.GetInt(RecursionDumpKey, 0) != 0;
-        _defaultDirPath = Directory.GetDirectoryRoot(Application.persistentDataPath);
+        _defaultDirPath = Application.persistentDataPath;
         _curDirPath = PlayerPrefs.GetString(CurDirPathKey, _defaultDirPath);
         if(!Directory.Exists(_curDirPath))
         {
@@ -113,11 +112,14 @@ public class Main : MonoBehaviour
         _itemTemp.SetActive(false);
         _listView = uiRoot.Find("ScrollView").gameObject.AddComponent<UILoopScrollView>();
         _listView.Init(LoopScrollLayoutType.Vertical, Vector2.zero, size, _itemTemp, OnUpdateItemData);
-        RefreshDir();
         uiRoot.Find("DumpButton").GetComponent<Button>().onClick.AddListener(OnClickDumpButton);
         _stateTip = uiRoot.Find("StateTip").gameObject;
         _stateTipText = _stateTip.transform.Find("Text").GetComponent<Text>();
         _stateTip.SetActive(false);
+        if(!RefreshDir())
+        {
+            ResetCurPath(_defaultDirPath);
+        }
     }
 
     void OnRecursionToggleChanged(bool value)
@@ -129,7 +131,12 @@ public class Main : MonoBehaviour
     {
         if(Directory.Exists(text))
         {
+            string lastPath = curDirPath;
             curDirPath = text;
+            if(!RefreshDir())
+            {
+                ResetCurPath(lastPath);
+            }
         }
         else
         {
@@ -139,10 +146,15 @@ public class Main : MonoBehaviour
 
     void OnClickParentButton()
     {
-        DirectoryInfo parentInfo = Directory.GetParent(_curDirPath);
+        string lastPath = _curDirPath;
+        DirectoryInfo parentInfo = Directory.GetParent(lastPath);
         if (parentInfo != null && !parentInfo.FullName.Equals(_curDirPath))
         {
             curDirPath = parentInfo.FullName;
+            if(!RefreshDir())
+            {
+                ResetCurPath(lastPath);
+            }
         }
     }
 
@@ -172,35 +184,55 @@ public class Main : MonoBehaviour
     {
         if(CheckValidAccessDir(path))
         {
+            string lastPath = curDirPath;
             curDirPath = path;
+            if (!RefreshDir())
+            {
+                ResetCurPath(lastPath);
+            }
         }
     }
 
-    public void RefreshDir()
+    public bool RefreshDir()
     {
-        DirectoryInfo curDir = new DirectoryInfo(_curDirPath);
-        if(curDir.Exists)
+        try
         {
-            _listView.ScrollRect.StopMovement();
-            List<FileData> dataList = new List<FileData>();
-            DirectoryInfo[] dirs = curDir.GetDirectories("*", SearchOption.TopDirectoryOnly);
-            foreach (var dir in dirs)
+            DirectoryInfo curDir = new DirectoryInfo(_curDirPath);
+            if (curDir.Exists)
             {
-                if(CheckValidAccessDir(dir))
+                _listView.ScrollRect.StopMovement();
+                List<FileData> dataList = new List<FileData>();
+                DirectoryInfo[] dirs = curDir.GetDirectories("*", SearchOption.TopDirectoryOnly);
+                foreach (var dir in dirs)
                 {
-                    dataList.Add(new FileData() { isDir = true, path = dir.FullName });
+                    if (CheckValidAccessDir(dir))
+                    {
+                        dataList.Add(new FileData() { isDir = true, path = dir.FullName });
+                    }
                 }
-            }
-            FileInfo[] files = curDir.GetFiles("*", SearchOption.TopDirectoryOnly);
-            foreach (var file in files)
-            {
-                if (CheckValidAccessFile(file))
+                FileInfo[] files = curDir.GetFiles("*", SearchOption.TopDirectoryOnly);
+                foreach (var file in files)
                 {
-                    dataList.Add(new FileData() { isDir = false, path = file.FullName });
+                    if (CheckValidAccessFile(file))
+                    {
+                        dataList.Add(new FileData() { isDir = false, path = file.FullName });
+                    }
                 }
+                _listView.Show(dataList, 0);
+                return true;
             }
-            _listView.Show(dataList, 0);
         }
+        catch(Exception e)
+        {
+            Debug.LogWarning(e);
+        }
+        return false;
+    }
+
+    void ResetCurPath(string path)
+    {
+        _curDirInputField.text = path;
+        curDirPath = path;
     }
 
     void OnUpdateItemData(int index, object data, GameObject go)
