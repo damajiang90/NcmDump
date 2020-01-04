@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using TagLib.Id3v2;
+using Newtonsoft.Json;
 
 namespace DesktopTool
 {
@@ -181,13 +182,17 @@ namespace DesktopTool
 
                 byte[] dontModifyDecryptChunk = Convert.FromBase64String(Encoding.UTF8.GetString(dontModifyChunk, startIndex, dontModifyChunk.Length - startIndex));
                 int mdcLen = AesDecrypt(dontModifyDecryptChunk, _modifyBoxKey);
-
+#if UNITY_EDITOR || UNITY_STANDALONE_WIN
                 DataContractJsonSerializer d = new DataContractJsonSerializer(typeof(NeteaseCopyrightData));
                 // skip `music:`
                 using (MemoryStream reader = new MemoryStream(dontModifyDecryptChunk, 6, mdcLen - 6))
                 {
                     _cdata = d.ReadObject(reader) as NeteaseCopyrightData;
                 }
+#else
+                string text = System.Text.Encoding.UTF8.GetString(dontModifyDecryptChunk, 6, mdcLen - 6);
+                _cdata = JsonConvert.DeserializeObject<NeteaseCopyrightData>(text);
+#endif
             }
 
             // skip crc & some use less chunk

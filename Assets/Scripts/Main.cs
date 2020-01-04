@@ -6,6 +6,8 @@ using System.IO;
 using UnityEngine.UI;
 using System.Security.AccessControl;
 using System;
+using UnityEditor;
+using Permission = UnityEngine.Android.Permission;
 
 public class Main : MonoBehaviour
 {
@@ -66,6 +68,27 @@ public class Main : MonoBehaviour
     void Awake()
     {
         _ins = this;
+        if (Application.platform == RuntimePlatform.Android)
+        {
+            RequestAndroidPermission();
+        }
+    }
+
+    
+    void RequestAndroidPermission()
+    {
+        if (!Permission.HasUserAuthorizedPermission("android.permission.MOUNT_UNMOUNT_FILESYSTEMS"))
+        {
+            Permission.RequestUserPermission("android.permission.MOUNT_UNMOUNT_FILESYSTEMS");
+        }
+        if (!Permission.HasUserAuthorizedPermission(Permission.ExternalStorageRead))
+        {
+            Permission.RequestUserPermission(Permission.ExternalStorageRead);
+        }
+        if (!Permission.HasUserAuthorizedPermission(Permission.ExternalStorageWrite))
+        {
+            Permission.RequestUserPermission(Permission.ExternalStorageWrite);
+        }
     }
 
     // Start is called before the first frame update
@@ -304,7 +327,7 @@ public class Main : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogWarning(e);
+            Debug.LogError(e);
         }
         finally
         {
